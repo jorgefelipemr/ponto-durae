@@ -27,11 +27,7 @@
     <form id="pontoForm" style="display: none;">
       <label for="nome">Aluno:</label>
       <select id="nome" required>
-        <option value="">Selecione seu nome...</option>
-        <!-- INSIRA O NOME DOS BOLSISTAS AQUI -->
-        <option value="Aluno 1">Aluno 1</option>
-        <option value="Aluno 2">Aluno 2</option>
-        <option value="Aluno 3">Aluno 3</option>
+        <option value="">Carregando lista de alunos...</option>
       </select>
 
       <label for="tipo">Registro:</label>
@@ -49,7 +45,8 @@
   <script>
     // ================= CONFIGURAÇÕES =================
     const IP_LABORATORIO = "200.131.207.11"; // Ex: "200.145.45.10"
-    const URL_DO_SCRIPT = "https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnT2WPi2pr3eprpevxAeszUbVdCe0LqQzdaF4rK4qyVfVAf2_9qsNMlyWPbyWaoct8mvjoVnroNrr3BhHyehGSK-Btj2YOeCjEsxwGCpYlDMsrAAGffXZGnQ4b82B0i9t1dfbWQEvK6Mr1TZ_9S8Sn3EeFkKNY49wbFcGgmS0_SpHWL8jZx-y-cogEWTdmnsLEFYsv4aiW8dRdYela3ekcBhbsu-V6Ig9yTrzL-Lamec30VdEHY4l8HWuFRLYA_i1A4qWWbOXcq_L7al5x2e3w7ZJZL9ew&lib=McVAZ62BM1X-DxIctIK9l06pdBSJVMAjE"; // Termina com /exec
+    const URL_DO_SCRIPT = "https://script.google.com/macros/s/AKfycbxh5z3Yp045YuWltIEDKspY0LQmWlaJFVHjqIB0AtuFstsZr0EOeDP_3237xFThEfN5/exec"; // Termina em /exec
+    const URL_CSV_ALUNOS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS6EWp6vZQ07ZZUYLexoIW84Tj3TXhmi4fZd6MepzzWL-KoU3TkqytMigVV7bacdwff7bkC4Y08y6-3/pub?gid=1854097096&single=true&output=csv"; // Link que termina em output=csv
     // =================================================
 
     let userIp = "";
@@ -57,14 +54,19 @@
     window.onload = async function() {
       const statusBox = document.getElementById("statusBox");
       try {
-        const res = await fetch('https://api.ipify.org?format=json');
-        const data = await res.json();
-        userIp = data.ip;
+        // 1. Pega o IP do aluno
+        const resIp = await fetch('https://api.ipify.org?format=json');
+        const dataIp = await resIp.json();
+        userIp = dataIp.ip;
 
+        // 2. Valida o Wi-Fi
         if (userIp === IP_LABORATORIO) {
           statusBox.className = "status ok";
           statusBox.innerText = "Conectado ao Wi-Fi do Laboratório ✓";
           document.getElementById("pontoForm").style.display = "block";
+          
+          // 3. Puxa os nomes da planilha
+          carregarAlunosDaPlanilha();
         } else {
           statusBox.className = "status erro";
           statusBox.innerText = "Acesso Bloqueado: Conecte-se ao Wi-Fi do Laboratório DurAE para registrar.";
@@ -74,6 +76,39 @@
         statusBox.innerText = "Erro ao identificar conexão com a internet.";
       }
     };
+
+    async function carregarAlunosDaPlanilha() {
+      try {
+        // Adiciona timestamp para evitar cache e sempre pegar o nome mais recente
+        const res = await fetch(URL_CSV_ALUNOS + '&t=' + new Date().getTime());
+        const texto = await res.text();
+        
+        // Separa as linhas do CSV
+        const linhas = texto.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+        
+        // Remove a primeira linha se for o cabeçalho "Nome"
+        if (linhas.length > 0 && linhas[0].toLowerCase().includes("nome")) {
+          linhas.shift();
+        }
+
+        const select = document.getElementById("nome");
+        select.innerHTML = '<option value="">Selecione seu nome...</option>';
+
+        linhas.forEach(nomeLimpo => {
+          // Remove aspas caso o Google coloque
+          const nomeFinal = nomeLimpo.replace(/^"|"$/g, '').trim();
+          if (nomeFinal) {
+            const opt = document.createElement("option");
+            opt.value = nomeFinal;
+            opt.innerText = nomeFinal;
+            select.appendChild(opt);
+          }
+        });
+      } catch (e) {
+        const select = document.getElementById("nome");
+        select.innerHTML = '<option value="">Erro ao carregar nomes</option>';
+      }
+    }
 
     function enviarPonto() {
       const nome = document.getElementById("nome").value;
@@ -89,7 +124,6 @@
       btn.disabled = true;
       btn.innerText = "Registrando...";
 
-      // Envio imune a bloqueios de CORS e contas Google
       const img = new Image();
       const query = `?nome=${encodeURIComponent(nome)}&tipo=${encodeURIComponent(tipo)}&ip=${encodeURIComponent(userIp)}&t=${new Date().getTime()}`;
       img.src = URL_DO_SCRIPT + query;
