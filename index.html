@@ -78,38 +78,38 @@
     };
 
     async function carregarAlunosDaPlanilha() {
-      try {
-        // Adiciona timestamp para evitar cache e sempre pegar o nome mais recente
-        const res = await fetch(URL_CSV_ALUNOS + '&t=' + new Date().getTime());
-        const texto = await res.text();
-        
-        // Separa as linhas do CSV
-        const linhas = texto.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-        
-        // Remove a primeira linha se for o cabeçalho "Nome"
-        if (linhas.length > 0 && linhas[0].toLowerCase().includes("nome")) {
-          linhas.shift();
-        }
+  try {
+    const res = await fetch(URL_CSV_ALUNOS + '&t=' + new Date().getTime());
+    const texto = await res.text();
+    
+    // Separa as linhas do arquivo
+    const linhas = texto.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    
+    const select = document.getElementById("nome");
+    select.innerHTML = '<option value="">Selecione seu nome...</option>';
 
-        const select = document.getElementById("nome");
-        select.innerHTML = '<option value="">Selecione seu nome...</option>';
+    linhas.forEach((linha, index) => {
+      // Ignora o cabeçalho se contiver a palavra "nome"
+      if (index === 0 && linha.toLowerCase().includes("nome")) return;
 
-        linhas.forEach(nomeLimpo => {
-          // Remove aspas caso o Google coloque
-          const nomeFinal = nomeLimpo.replace(/^"|"$/g, '').trim();
-          if (nomeFinal) {
-            const opt = document.createElement("option");
-            opt.value = nomeFinal;
-            opt.innerText = nomeFinal;
-            select.appendChild(opt);
-          }
-        });
-      } catch (e) {
-        const select = document.getElementById("nome");
-        select.innerHTML = '<option value="">Erro ao carregar nomes</option>';
+      // Pega apenas a primeira coluna (antes da vírgula)
+      let primeiroItem = linha.split(',')[0];
+
+      // Remove aspas extras que o CSV possa ter colocado
+      let nomeLimpo = primeiroItem.replace(/^"|"$/g, '').trim();
+
+      if (nomeLimpo) {
+        const opt = document.createElement("option");
+        opt.value = nomeLimpo;
+        opt.innerText = nomeLimpo;
+        select.appendChild(opt);
       }
-    }
-
+    });
+  } catch (e) {
+    const select = document.getElementById("nome");
+    select.innerHTML = '<option value="">Erro ao carregar nomes</option>';
+  }
+}
     function enviarPonto() {
       const nome = document.getElementById("nome").value;
       const tipo = document.getElementById("tipo").value;
